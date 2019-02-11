@@ -2,10 +2,11 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/go-yaml/yaml"
-	"gopkg.in/alecthomas/kingpin.v2"
+	kingpin "gopkg.in/alecthomas/kingpin.v2"
 	"k8s.io/api/apps/v1beta1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -14,7 +15,15 @@ import (
 )
 
 var (
-	path = kingpin.Arg("path", "Deployment file path").Required().String()
+	path          = kingpin.Flag("path", "Deployment file path where to inject clousql proxy (eg. ./my-deploy-manifest.yaml)").Required().String()
+	instance      = kingpin.Flag("instance", "CloudSQL instance (eg. my-clousql-instance=tcp:5432)").Required().String()
+	region        = kingpin.Flag("region", "GCP region (eg. europe-west1)").Required().String()
+	project       = kingpin.Flag("project", "GCP project ID (eg. ricardo)").Required().String()
+	cpuRequest    = kingpin.Flag("cpu-request", "CPU request of the sidecar container").Default("5m").String()
+	memoryRequest = kingpin.Flag("memory-request", "Memory request of the sidecar container").Default("8Mi").String()
+	cpuLimit      = kingpin.Flag("cpu-limit", "CPU limit of the sidecar container").Default("100m").String()
+	memoryLimit   = kingpin.Flag("memory-limit", "Memory limit of the sidecar container").Default("128Mi").String()
+	proxyVersion  = kingpin.Flag("proxy-version", "CloudSQL proxy version").Default("1.11").String()
 )
 
 func main() {
@@ -22,18 +31,7 @@ func main() {
 
 	var cloudSQLProxyContainer v1.Container
 	{
-		limitCPUQt := resource.NewMilliQuantity(100, resource.BinarySI)
-		limitMemoryQt := resource.NewQuantity(128*1024e3, resource.BinarySI)
-		limits := v1.ResourceList{
-			v1.ResourceCPU:    *limitCPUQt,
-			v1.ResourceMemory: *limitMemoryQt,
-		}
-		requestCPUQt := resource.NewMilliQuantity(5, resource.BinarySI)
-		requestMemoryQt := resource.NewMilliQuantity(8, resource.BinarySI)
-		requests := v1.ResourceList{
-			v1.ResourceCPU:    *requestCPUQt,
-			v1.ResourceMemory: *requestMemoryQt,
-		}
+		requestResources, limitResources := setResources(*cpuRequest, *memoryRequest, *cpuLimit, *memoryLimit)
 
 		var runAsUser int64 = 2
 		var allowPrivilegeEscalation = false
@@ -51,9 +49,9 @@ func main() {
 
 		cloudSQLProxyContainer = v1.Container{}
 		cloudSQLProxyContainer.Name = "cloudsql-proxy"
-		cloudSQLProxyContainer.Image = "gcr.io/cloudsql-docker/gce-proxy:1.11"
-		cloudSQLProxyContainer.Command = []string{"/cloud_sql_proxy", "-instances=ricardo-dev-ch:europe-west1:ricardo-dev-postgres=tcp:5432", "-credential_file=/secrets/cloudsql/credentials.json"}
-		cloudSQLProxyContainer.Resources = v1.ResourceRequirements{Limits: limits, Requests: requests}
+		cloudSQLProxyContainer.Image = fmt.Sprintf("gcr.io/cloudsql-docker/gce-proxy:%s", *proxyVersion)
+		cloudSQLProxyContainer.Command = []string{"/cloud_sql_proxy", fmt.Sprintf("-instances=%s:%s:%s", *project, *region, *instance), "-credential_file=/secrets/cloudsql/credentials.json"}
+		cloudSQLProxyContainer.Resources = v1.ResourceRequirements{Requests: requestResources, Limits: limitResources}
 		cloudSQLProxyContainer.SecurityContext = &securityContext
 		cloudSQLProxyContainer.VolumeMounts = []v1.VolumeMount{volumeMount}
 	}
@@ -68,7 +66,10 @@ func main() {
 	}
 	defer f.Close()
 
-	b, _ = json.Marshal(&cloudSQLProxyContainer)
+	b, err = json.Marshal(&cloudSQLProxyContainer)
+	if err != nil {
+		panic(err)
+	}
 
 	deploy := &v1beta1.Deployment{}
 	err = json.Unmarshal(b, &deploy)
@@ -89,4 +90,35 @@ func main() {
 
 	serializer := k8sjson.NewYAMLSerializer(k8sjson.DefaultMetaFactory, nil, nil)
 	serializer.Encode(deploy, os.Stdout)
+}
+
+func setResources(cpuRequest, memoryRequest, cpuLimit, memoryLimit string) (request v1.ResourceList, limit v1.ResourceList) {
+	requestCPU, err := resource.ParseQuantity(cpuRequest)
+	if err != nil {
+		panic(err)
+	}
+	requestMemory, err := resource.ParseQuantity(memoryRequest)
+	if err != nil {
+		panic(err)
+	}
+	request = v1.ResourceList{
+		v1.ResourceCPU:    requestCPU,
+		v1.ResourceMemory: requestMemory,
+	}
+
+	limitCPU, err := resource.ParseQuantity(cpuLimit)
+	if err != nil {
+		panic(err)
+	}
+	limitMemory, err := resource.ParseQuantity(memoryLimit)
+	if err != nil {
+		panic(err)
+	}
+
+	limit = v1.ResourceList{
+		v1.ResourceCPU:    limitCPU,
+		v1.ResourceMemory: limitMemory,
+	}
+
+	return request, limit
 }
