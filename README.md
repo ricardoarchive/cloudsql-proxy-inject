@@ -14,7 +14,7 @@ $ make build-darwin
 
 ## Usage
 ```
-usage: cloudsql-proxy-inject --path=PATH --instance=INSTANCE --region=REGION --project=PROJECT [<flags>]
+usage: cloudsql-proxy-inject --path=PATH --instance=INSTANCE --region=REGION --project=PROJECT --verbose=false[<flags>]
 
 Flags:
   --help                  Show context-sensitive help (also try --help-long and --help-man).
@@ -27,4 +27,5 @@ Flags:
   --cpu-limit="100m"      CPU limit of the sidecar container
   --memory-limit="128Mi"  Memory limit of the sidecar container
   --proxy-version="1.11"  CloudSQL proxy version
+  --verbose=VERBOSE       Verbose mode (eg. false)
 ```

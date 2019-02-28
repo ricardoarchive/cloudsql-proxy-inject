@@ -24,6 +24,7 @@ var (
 	cpuLimit      = kingpin.Flag("cpu-limit", "CPU limit of the sidecar container").Default("100m").String()
 	memoryLimit   = kingpin.Flag("memory-limit", "Memory limit of the sidecar container").Default("128Mi").String()
 	proxyVersion  = kingpin.Flag("proxy-version", "CloudSQL proxy version").Default("1.11").String()
+	verbose       = kingpin.Flag("verbose", "CloudSQL proxy verbose mode").Default("false").String()
 )
 
 func main() {
@@ -50,7 +51,7 @@ func main() {
 		cloudSQLProxyContainer = v1.Container{}
 		cloudSQLProxyContainer.Name = "cloudsql-proxy"
 		cloudSQLProxyContainer.Image = fmt.Sprintf("gcr.io/cloudsql-docker/gce-proxy:%s", *proxyVersion)
-		cloudSQLProxyContainer.Command = []string{"/cloud_sql_proxy", fmt.Sprintf("-instances=%s:%s:%s", *project, *region, *instance), "-credential_file=/secrets/cloudsql/credentials.json"}
+		cloudSQLProxyContainer.Command = []string{"/cloud_sql_proxy", fmt.Sprintf("-instances=%s:%s:%s", *project, *region, *instance), "-log_debug_stdout=true", fmt.Sprintf("-verbose=%s", *verbose), "-credential_file=/secrets/cloudsql/credentials.json"}
 		cloudSQLProxyContainer.Resources = v1.ResourceRequirements{Requests: requestResources, Limits: limitResources}
 		cloudSQLProxyContainer.SecurityContext = &securityContext
 		cloudSQLProxyContainer.VolumeMounts = []v1.VolumeMount{volumeMount}
