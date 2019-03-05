@@ -4,6 +4,15 @@ metadata:
   name: test
 spec:
   replicas: 1
+  template:
+    spec:
+      containers:
+      - name: name-test
+        image: some-image
+      volumes:
+      - name: test-volume
+        secret:
+          secretName: test-secret
 ---
 apiVersion: v1
 kind: Service

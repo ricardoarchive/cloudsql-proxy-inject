@@ -24,9 +24,14 @@ spec:
       creationTimestamp: null
     spec:
       containers:
+      - image: some-image
+        name: name-test
+        resources: {}
       - command:
         - /cloud_sql_proxy
         - -instances=project-test:region-test:instance-test
+        - -log_debug_stdout=true
+        - -verbose=
         - -credential_file=/secrets/cloudsql/credentials.json
         image: gcr.io/cloudsql-docker/gce-proxy:1.11
         name: cloudsql-proxy
@@ -45,6 +50,9 @@ spec:
           name: cloudsql-proxy-credentials
           readOnly: true
       volumes:
+      - name: test-volume
+        secret:
+          secretName: test-secret
       - name: cloudsql-proxy-credentials
         secret:
           secretName: cloudsql-proxy-credentials
@@ -83,6 +91,5 @@ spec:
 	w.Close()
 	var buf bytes.Buffer
 	io.Copy(&buf, r)
-
 	assert.Equal(t, expectedOutput, buf.String())
 }
