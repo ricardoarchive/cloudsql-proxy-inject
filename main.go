@@ -6,9 +6,10 @@ import (
 	"os"
 
 	"github.com/go-yaml/yaml"
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
+	"gopkg.in/alecthomas/kingpin.v2"
+	"gopkg.in/yaml.v2"
 	"k8s.io/api/apps/v1beta1"
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8sjson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
@@ -54,7 +55,7 @@ func main() {
 		cloudSQLProxyContainer.Command = []string{"/cloud_sql_proxy", fmt.Sprintf("-instances=%s:%s:%s", *project, *region, *instance), "-log_debug_stdout=true", fmt.Sprintf("-verbose=%s", *verbose), "-credential_file=/secrets/cloudsql/credentials.json"}
 		cloudSQLProxyContainer.Resources = v1.ResourceRequirements{Requests: requestResources, Limits: limitResources}
 		cloudSQLProxyContainer.SecurityContext = &securityContext
-		cloudSQLProxyContainer.VolumeMounts = []v1.VolumeMount{volumeMount}
+		cloudSQLProxyContainer.VolumeMounts = append(cloudSQLProxyContainer.VolumeMounts, volumeMount)
 	}
 
 	b, err := yaml.Marshal(&cloudSQLProxyContainer)
@@ -79,14 +80,14 @@ func main() {
 	}
 	k8syaml.NewYAMLOrJSONDecoder(f, 4096).Decode(&deploy)
 
-	deploy.Spec.Template.Spec.Volumes = []v1.Volume{v1.Volume{
+	deploy.Spec.Template.Spec.Volumes = append(deploy.Spec.Template.Spec.Volumes, v1.Volume{
 		Name: "cloudsql-proxy-credentials",
 		VolumeSource: v1.VolumeSource{
 			Secret: &v1.SecretVolumeSource{
 				SecretName: "cloudsql-proxy-credentials",
 			},
 		},
-	}}
+	})
 	deploy.Spec.Template.Spec.Containers = append(deploy.Spec.Template.Spec.Containers, cloudSQLProxyContainer)
 
 	serializer := k8sjson.NewYAMLSerializer(k8sjson.DefaultMetaFactory, nil, nil)
