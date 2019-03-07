@@ -25,7 +25,7 @@ var (
 	memoryRequest = kingpin.Flag("memory-request", "Memory request of the sidecar container").Default("8Mi").String()
 	cpuLimit      = kingpin.Flag("cpu-limit", "CPU limit of the sidecar container").Default("100m").String()
 	memoryLimit   = kingpin.Flag("memory-limit", "Memory limit of the sidecar container").Default("128Mi").String()
-	proxyVersion  = kingpin.Flag("proxy-version", "CloudSQL proxy version").Default("1.11").String()
+	proxyVersion  = kingpin.Flag("proxy-version", "CloudSQL proxy version").Default("1.13").String()
 	verbose       = kingpin.Flag("verbose", "CloudSQL proxy verbose mode").Default("false").String()
 )
 
@@ -169,7 +169,6 @@ func getCloudContainer() v1.Container {
 		cloudSQLProxyContainer.SecurityContext = &securityContext
 		cloudSQLProxyContainer.VolumeMounts = append(cloudSQLProxyContainer.VolumeMounts, volumeMount)
 	}
-
 
 	return cloudSQLProxyContainer
 }
