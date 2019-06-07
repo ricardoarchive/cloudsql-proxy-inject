@@ -3,10 +3,12 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"github.com/pkg/errors"
 	"io"
 	"io/ioutil"
 	"os"
+	"time"
+
+	"github.com/pkg/errors"
 
 	"gopkg.in/alecthomas/kingpin.v2"
 	"k8s.io/api/apps/v1beta1"
@@ -27,6 +29,7 @@ var (
 	memoryLimit   = kingpin.Flag("memory-limit", "Memory limit of the sidecar container").Default("128Mi").String()
 	proxyVersion  = kingpin.Flag("proxy-version", "CloudSQL proxy version").Default("1.13").String()
 	verbose       = kingpin.Flag("verbose", "CloudSQL proxy verbose mode").Default("false").String()
+	termTimeout   = kingpin.Flag("term-timeout", "Delay CloudSQL proxy termination. Optional. Details: https://github.com/GoogleCloudPlatform/cloudsql-proxy").String()
 )
 
 func main() {
@@ -164,7 +167,7 @@ func getCloudContainer() v1.Container {
 		cloudSQLProxyContainer = v1.Container{}
 		cloudSQLProxyContainer.Name = "cloudsql-proxy"
 		cloudSQLProxyContainer.Image = fmt.Sprintf("gcr.io/cloudsql-docker/gce-proxy:%s", *proxyVersion)
-		cloudSQLProxyContainer.Command = []string{"/cloud_sql_proxy", fmt.Sprintf("-instances=%s:%s:%s", *project, *region, *instance), "-log_debug_stdout=true", fmt.Sprintf("-verbose=%s", *verbose), "-credential_file=/secrets/cloudsql/credentials.json"}
+		cloudSQLProxyContainer.Command = buildCommand()
 		cloudSQLProxyContainer.Resources = v1.ResourceRequirements{Requests: requestResources, Limits: limitResources}
 		cloudSQLProxyContainer.SecurityContext = &securityContext
 		cloudSQLProxyContainer.VolumeMounts = append(cloudSQLProxyContainer.VolumeMounts, volumeMount)
@@ -179,4 +182,15 @@ func putItBack(otherResources [][]byte, w io.Writer) {
 		w.Write([]byte("\n---\n"))
 		w.Write(resourceBytes)
 	}
+}
+
+// build cloud_sql_proxy options. validate termTimeout, if not valid do not set it.
+func buildCommand() []string {
+	commands := []string{"/cloud_sql_proxy", fmt.Sprintf("-instances=%s:%s:%s", *project, *region, *instance), "-log_debug_stdout=true", fmt.Sprintf("-verbose=%s", *verbose), "-credential_file=/secrets/cloudsql/credentials.json"}
+
+	if _, err := time.ParseDuration(*termTimeout); err == nil {
+		commands = append(commands, fmt.Sprintf("-term_timeout=%s", *termTimeout))
+	}
+
+	return commands
 }
