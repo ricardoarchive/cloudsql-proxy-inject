@@ -28,4 +28,5 @@ Flags:
   --memory-limit="128Mi"  Memory limit of the sidecar container
   --proxy-version="1.11"  CloudSQL proxy version
   --verbose=VERBOSE       Verbose mode (eg. false)
+  --term-timeout          Delay CloudSQL proxy termination. Optional. Details: https://github.com/GoogleCloudPlatform/cloudsql-proxy 
 ```
