@@ -171,6 +171,12 @@ func getCloudContainer() v1.Container {
 		cloudSQLProxyContainer.Resources = v1.ResourceRequirements{Requests: requestResources, Limits: limitResources}
 		cloudSQLProxyContainer.SecurityContext = &securityContext
 		cloudSQLProxyContainer.VolumeMounts = append(cloudSQLProxyContainer.VolumeMounts, volumeMount)
+
+		cloudSQLProxyContainer.Lifecycle = &v1.Lifecycle{PreStop: &v1.Handler{
+			Exec: &v1.ExecAction{
+				Command: []string{"/bin/sh", "-c", "while [ $(netstat -plunt | grep tcp | grep -v envoy | grep -v cloud_sql_proxy | wc -l | xargs) -ne 0 ]; do sleep 1; done"},
+			},
+		}}
 	}
 
 	return cloudSQLProxyContainer
